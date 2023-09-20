@@ -1,0 +1,502 @@
+---
+title: "Visualization 502 - Olympics 100m"
+author: "ME/RR/BS"
+date: "11/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+
+###### install.packages("trackdown")
+###### install.packages("rvest")
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(rvest)
+library(dplyr)
+library(trackdown)
+```
+
+### Are humans getting faster? Or is it that more are participating?
+
+#### 100m Mens and Womens races in the Olympics over the last 100 years
+##### Adidas, established in Herzogenaurach, Germany in 1949. Founded by Adolf "Adi" Dassler and brother Rudolf they developed spiked running shoes (spikes) for multiple athletic events. To enhance the quliaty of spiked athletic footwear, he transitioned from a previous model of heavy metal spikes to utilizing canvas and rubber. 1936 they convinced sprinter Jesse Owens to use the hand made spikes at the 1936 Summer Olympics (received 4 gold medals)
+##### Nike, established in Eugene, OR 1964. Originally known as "Blue Ribbon Sports (BRS)" founded at U of O track athlete Phil Knight and his coach Bill Bowerman. The company initially operated in Eugene, OR as a distributor for Japanese shoe maker Onitsuka Tiger, making most sales at track meets out of Knights car. Otis Davis, 1960 Olympic gold medalist, claims Bowerman made the first pair of Nike shoes for him contradicting a claim they were made for Phil Knight. 
+##### Reebok, established in Bolton, UK in 1958 - In 1895 Joseph William Foster designed earliest spiked running shoes in the beginning. Opened a small factory called Olympic Works and became famous for "running pumps". The company began distributing shoes across the Union Jack flag worn by British athletes. They were made amous by 100m champion Harold Abrahams in the 1924 Paris Olympics (Chariots of Fire). 1958 founded "Reebok" (after a type of African antelope)
+
+
+```{r}
+atl<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1996_Summer_Olympics")
+tables<-atl%>%html_table(fill=TRUE)
+atl_men<-tables[[2]]
+atl_women<-tables[[3]]
+atl_men_yr<- add_column(atl_men,"Year"=1996, "Host City"="Atlanta", "Host Country"="USA")%>%relocate("Year", "Host City","Host Country")
+atl_women_yr<- add_column(atl_women,"Year"=1996,"Host City"="Atlanta","Host Country"="USA")%>%relocate("Year", "Host City","Host Country")
+head(atl_men_yr)
+head(atl_women_yr)
+```
+
+```{r}
+syd<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_2000_Summer_Olympics")
+tables<-syd%>%html_table(fill=TRUE)
+syd_men<-tables[[3]]
+syd_women<-tables[[4]]
+syd_men_yr<- add_column(syd_men,"Year"=2000,"Host City"="Sydney", "Host Country"="Australia")%>%relocate("Year", "Host City","Host Country")
+syd_women_yr<- add_column(syd_women,"Year"=2000,"Host City"="Atlanta", "Host Country"="USA")%>%relocate("Year", "Host City","Host Country")
+head(syd_women_yr)
+head(syd_men_yr)
+```
+
+```{r}
+ath<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_2004_Summer_Olympics")
+tables<-ath%>%html_table(fill=TRUE)
+ath_men<-tables[[3]]
+ath_women<-tables[[4]]
+ath_men_yr<- add_column(ath_men,"Year"=2004,"Host City"="Athens", "Host Country"="Greece")%>%relocate("Year", "Host City","Host Country")
+ath_women_yr<- add_column(ath_women,"Year"=2004,"Host City"="Athens", "Host Country"="Greece")
+head(ath_women_yr)
+head(ath_men_yr)
+```
+
+```{r}
+bej<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_2008_Summer_Olympics")
+tables<-bej%>%html_table(fill=TRUE)
+bej_men<-tables[[4]]
+bej_women<-tables[[5]]
+bej_men_yr<- add_column(bej_men,"Year"=2008,"Host City"="Beijing", "Host Country"="China")%>% relocate("Year", "Host City", "Host Country")
+bej_women_yr<- add_column(bej_women,"Year"=2008,"Host City"="Beijing", "Host Country"="China")%>% relocate("Year", "Host City", "Host Country")
+head(bej_women_yr)
+head(bej_men_yr)
+```
+
+```{r}
+lon_12<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_2012_Summer_Olympics")
+tables<-lon_12%>%html_table(fill=TRUE)
+lon_12_men<-tables[[7]]
+lon_12_women<-tables[[8]]
+lon_12_men_yr<- add_column(lon_12_men,"Year"=2012,"Host City"="London", "Host Country"="Great Britain")%>% relocate("Year", "Host City", "Host Country")
+lon_12_women_yr<- add_column(lon_12_women,"Year"=2012,"Host City"="London", "Host Country"="Great Britain")%>% relocate("Year", "Host City", "Host Country")
+head(lon_12_women_yr)
+head(lon_12_men_yr)
+```
+
+```{r}
+rio<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_2016_Summer_Olympics")
+tables<-rio%>%html_table(fill=TRUE)
+rio_men<-tables[[6]]
+rio_women<-tables[[7]]
+rio_men_yr<- add_column(rio_men,"Year"=2016,"Host City" ="Rio de Janeiro", "Host Country"="Brazil")%>% relocate("Year", "Host City", "Host Country")
+rio_women_yr<- add_column(rio_women,"Year"=2016,"Host City" ="Rio de Janeiro", "Host Country"="Brazil")%>% relocate("Year", "Host City", "Host Country")
+head(rio_women_yr)
+head(rio_men_yr)
+```
+
+```{r}
+bar<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1992_Summer_Olympics")
+tables<-bar%>%html_table(fill=TRUE)
+bar_men<-tables[[2]]
+bar_women<-tables[[3]]
+bar_men_yr<- add_column(bar_men,"Year"=1992,"Host City" ="Barcelona", "Host Country"="Spain")%>% relocate("Year", "Host City", "Host Country")
+bar_women_yr<- add_column(bar_women,"Year"=1992,"Host City" ="Barcelona", "Host Country"="Spain")%>% relocate("Year", "Host City", "Host Country")
+head(bar_women_yr)
+head(bar_men_yr)
+```
+
+```{r}
+seo<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1988_Summer_Olympics")
+tables<-seo%>%html_table(fill=TRUE)
+seo_men<-tables[[2]]
+seo_women<-tables[[3]]
+seo_men_yr<- add_column(seo_men,"Year"=1988,"Host City" ="Seoul", "Host Country"="South Korea")%>% relocate("Year", "Host City", "Host Country")
+seo_women_yr<- add_column(seo_women,"Year"=1988,"Host City" ="Seoul", "Host Country"="South Korea")%>% relocate("Year", "Host City", "Host Country")
+head(seo_women_yr)
+head(seo_men_yr)
+```
+
+```{r}
+los<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1984_Summer_Olympics")
+tables<-los%>%html_table(fill=TRUE)
+los_men<-tables[[2]]
+los_women<-tables[[3]]
+los_men_yr<- add_column(los_men,"Year"=1984,"Host City" ="Los Angeles", "Host Country"="USA")%>% relocate("Year", "Host City", "Host Country")
+los_women_yr<- add_column(los_women,"Year"=1984,"Host City" ="Los Angeles", "Host Country"="USA")%>% relocate("Year", "Host City", "Host Country")
+head(los_women_yr)
+head(los_men_yr)
+```
+
+```{r}
+mos<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1980_Summer_Olympics")
+tables<-mos%>%html_table(fill=TRUE)
+mos_men<-tables[[3]]
+mos_women<-tables[[4]]
+mos_men_yr<- add_column(mos_men,"Year"=1980,"Host City" ="Moscow", "Host Country"="Russia")%>% relocate("Year", "Host City", "Host Country")
+mos_women_yr<- add_column(mos_women,"Year"=1980,"Host City" ="Moscow", "Host Country"="Russia")%>% relocate("Year", "Host City", "Host Country")
+head(mos_women_yr)
+head(mos_men_yr)
+```
+
+```{r}
+mon<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1976_Summer_Olympics")
+tables<-mon%>%html_table(fill=TRUE)
+mon_men<-tables[[1]]
+mon_women<-tables[[2]]
+mon_men_yr<- add_column(mon_men,"Year"=1976,"Host City" ="Montreal", "Host Country"="Canada")%>% relocate("Year", "Host City", "Host Country")
+mon_women_yr<- add_column(mon_women,"Year"=1976,"Host City" ="Montreal", "Host Country"="Canada")%>% relocate("Year", "Host City", "Host Country")
+head(mon_women_yr)
+head(mon_men_yr)
+```
+
+```{r}
+mun<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1972_Summer_Olympics")
+tables<-mun%>%html_table(fill=TRUE)
+mun_men<-tables[[1]]
+mun_women<-tables[[2]]
+mun_men_yr<- add_column(mun_men,"Year"=1972,"Host City" ="Munich", "Host Country"="Germany")%>% relocate("Year", "Host City", "Host Country")
+mun_women_yr<- add_column(mun_women,"Year"=1972,"Host City" ="Munich", "Host Country"="Germany")%>% relocate("Year", "Host City", "Host Country")
+head(mun_women_yr)
+head(mun_men_yr)
+```
+
+```{r}
+mex<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1968_Summer_Olympics")
+tables<-mex%>%html_table(fill=TRUE)
+mex_men<-tables[[2]]
+mex_women<-tables[[3]]
+mex_men_yr<- add_column(mex_men,"Year"=1968,"Host City" ="Mexico City", "Host Country"="Mexico")%>% relocate("Year", "Host City", "Host Country")
+mex_women_yr<- add_column(mex_women,"Year"=1968,"Host City" ="Mexico City", "Host Country"="Mexico")%>% relocate("Year", "Host City", "Host Country")
+head(mex_women_yr)
+head(mex_men_yr)
+```
+
+```{r}
+tok<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1964_Summer_Olympics")
+tables<-tok%>%html_table(fill=TRUE)
+tok_men<-tables[[1]]
+tok_women<-tables[[2]]
+tok_men_yr<- add_column(tok_men,"Year"=1964,"Host City" ="Tokyo", "Host Country"="Japan")%>% relocate("Year", "Host City", "Host Country")
+tok_women_yr<- add_column(tok_women,"Year"=1964,"Host City" ="Tokyo", "Host Country"="Japan")%>% relocate("Year", "Host City", "Host Country")
+head(tok_women_yr)
+head(tok_men_yr)
+```
+
+```{r}
+rom<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1960_Summer_Olympics")
+tables<-rom%>%html_table(fill=TRUE)
+rom_men<-tables[[3]]
+rom_women<-tables[[4]]
+rom_men_yr<- add_column(rom_men,"Year"=1960,"Host City" ="Rome", "Host Country"="Italy")%>% relocate("Year", "Host City", "Host Country")
+rom_women_yr<- add_column(rom_women,"Year"=1960,"Host City" ="Rome", "Host Country"="Italy")%>% relocate("Year", "Host City", "Host Country")
+head(rom_women_yr)
+head(rom_men_yr)
+```
+
+```{r}
+mel<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1956_Summer_Olympics")
+tables<-mel%>%html_table(fill=TRUE)
+mel_men<-tables[[2]]
+mel_women<-tables[[3]]
+mel_men_yr<- add_column(mel_men,"Year"=1956,"Host City" ="Melbourne", "Host Country"="Australia")%>% relocate("Year", "Host City", "Host Country")
+mel_women_yr<- add_column(mel_women,"Year"=1956,"Host City" ="Melbourne", "Host Country"="Australia")%>% relocate("Year", "Host City", "Host Country")
+head(mel_women_yr)
+head(mel_men_yr)
+```
+
+```{r}
+hel<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1952_Summer_Olympics")
+tables<-hel%>%html_table(fill=TRUE)
+hel_men<-tables[[2]]
+hel_women<-tables[[3]]
+hel_men_yr<- add_column(hel_men,"Year"=1952,"Host City" ="Helsinki", "Host Country"="Finland")%>% relocate("Year", "Host City", "Host Country")
+hel_women_yr<- add_column(hel_women,"Year"=1952,"Host City" ="Helsinki", "Host Country"="Finland")%>% relocate("Year", "Host City", "Host Country")
+head(hel_women_yr)
+head(hel_men_yr)
+```
+
+```{r}
+lon_48<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1948_Summer_Olympics")
+tables<-lon_48%>%html_table(fill=TRUE)
+lon_48_men<-tables[[2]]
+lon_48_women<-tables[[3]]
+lon_48_men_yr<- add_column(lon_48_men,"Year"=1948,"Host City" ="London", "Host Country"="Great Britain")%>% relocate("Year", "Host City", "Host Country")
+lon_48_women_yr<- add_column(lon_48_women,"Year"=1948,"Host City" ="London", "Host Country"="Great Britain")%>% relocate("Year", "Host City", "Host Country")
+head(lon_48_women_yr)
+head(lon_48_men_yr)
+```
+
+```{r}
+ber<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1936_Summer_Olympics")
+tables<-ber%>%html_table(fill=TRUE)
+ber_men<-tables[[2]]
+ber_women<-tables[[3]]
+ber_men_yr<- add_column(ber_men,"Year"=1936,"Host City" ="Berlin", "Host Country"="Germany")%>% relocate("Year", "Host City", "Host Country")
+ber_women_yr<- add_column(ber_women,"Year"=1936,"Host City" ="Berlin", "Host Country"="Germany")%>% relocate("Year", "Host City", "Host Country")
+head(ber_women_yr)
+head(ber_men_yr)
+```
+
+#### No times, medals and countries only
+```{r}
+ams<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1928_Summer_Olympics")
+tables<-ams%>%html_table(fill=TRUE)
+ams_men<-tables[[3]]
+ams_women<-tables[[4]]
+ams_men_yr<- add_column(ams_men,"Year"=1928,"Host City" ="Amesterdam", "Host Country"="Netherlands")%>% relocate("Year", "Host City", "Host Country")
+ams_women_yr<- add_column(ams_women,"Year"=1928,"Host City" ="Amesterdam", "Host Country"="Netherlands")%>% relocate("Year", "Host City", "Host Country")
+head(ams_women_yr)
+head(ams_men_yr)
+```
+
+#### Mens medals only, no women and no time. 
+```{r}
+par<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1924_Summer_Olympics")
+tables<-par%>%html_table(fill=TRUE)
+par_men<-tables[[2]]
+par_men_yr<- add_column(par_men,"Year"=1924,"Host City" ="Paris", "Host Country"="France")%>% relocate("Year", "Host City", "Host Country")
+head(par_men_yr)
+```
+
+```{r}
+ant<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1920_Summer_Olympics")
+tables<-ant%>%html_table(fill=TRUE)
+ant_men<-tables[[2]]
+ant_men_yr<- add_column(ant_men,"Year"=1920,"Host City" ="Antwerp", "Host Country"="Belgium")%>% relocate("Year", "Host City", "Host Country")
+head(ant_men_yr)
+```
+
+```{r}
+sto<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1912_Summer_Olympics")
+tables<-sto%>%html_table(fill=TRUE)
+sto_men<-tables[[2]]
+sto_men_yr<- add_column(sto_men,"Year"=1912,"Host City" ="Stockholm", "Host Country"="Sweden")%>% relocate("Year", "Host City", "Host Country")
+head(sto_men_yr)
+```
+
+```{r}
+lon_08<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1908_Summer_Olympics")
+tables<-lon_08%>%html_table(fill=TRUE)
+lon_08_men<-tables[[2]]
+lon_08_men_yr<- add_column(lon_08_men,"Year"=1908,"Host City" ="London", "Host Country"="Great Britain")%>% relocate("Year", "Host City", "Host Country")
+head(lon_08_men_yr)
+```
+
+```{r}
+stl<-read_html("https://en.wikipedia.org/wiki/Athletics_at_the_1904_Summer_Olympics")
+tables<-stl%>%html_table(fill=TRUE)
+stl_men<-tables[[3]]
+stl_men_yr<- add_column(stl_men,"Year"=1904,"Host City" ="St Louis", "Host Country"="USA")%>% relocate("Year", "Host City", "Host Country")
+head(stl_men_yr)
+```
+
+```{r}
+oly_men<- bind_rows(rio_men_yr,lon_12_men_yr,bej_men_yr,ath_men_yr,syd_men_yr,atl_men_yr,bar_men_yr,seo_men_yr,los_men_yr,mos_men_yr,mon_men_yr,mun_men_yr,mex_men_yr,tok_men_yr,rom_men_yr,mel_men_yr,hel_men_yr,lon_48_men_yr,ber_men_yr,ams_men_yr,par_men_yr,ant_men_yr,sto_men_yr,lon_08_men_yr,stl_men_yr)
+oly_men
+oly_women<- bind_rows(rio_women_yr,lon_12_women_yr,bej_women_yr,ath_women_yr,syd_women_yr,atl_women_yr,bar_women_yr,seo_women_yr,los_women_yr,mos_women_yr,mon_women_yr,mun_women_yr,mex_women_yr,tok_women_yr,rom_women_yr,mel_women_yr,hel_women_yr,lon_48_women_yr,ber_women_yr,ams_women_yr)
+head(oly_women)
+```
+
+```{r}
+oly_men <- oly_men %>% mutate(Event = coalesce(Event,Games))
+oly_women <- oly_women %>% mutate(Event = coalesce(Event,Games))
+```
+
+```{r}
+oly_men$Event <- gsub("details", "", as.character(oly_men$Event))
+colnames(oly_men)[c(5,6,7,8,9,10)]<- c("Gold_Name", "Gold_Time","Silver_Name","Silver_Time","Bronze_Name","Bronze_Time")
+
+oly_men$Gold_Name<- gsub("\u00A0", " ", oly_men$Gold_Name, fixed =TRUE)
+oly_men<- oly_men%>%separate(Gold_Name, into=c("gold_first_name","gold_last_name", "gold_country"), sep=" ",extra="merge")%>%separate(Gold_Time,into=c("gTime","gwr_or"), sep="\\(")
+
+oly_men$Silver_Name<- gsub("\u00A0", " ", oly_men$Silver_Name, fixed =TRUE)
+oly_men<- oly_men%>%separate(Silver_Name, into=c("silver_first_name","silver_last_name", "silver_country"), sep=" ",extra="merge")%>%separate(Silver_Time,into=c("sTime","swr_or"), sep="\\(")
+
+oly_men$Bronze_Name<- gsub("\u00A0", " ", oly_men$Bronze_Name, fixed =TRUE)
+oly_men<- oly_men%>%separate(Bronze_Name, into=c("bronze_first_name","bronze_last_name", "bronze_country"), sep=" ",extra="merge")%>%separate(Bronze_Time,into=c("bTime","bwr_or"), sep="\\(")
+
+oly_men$gTime <-  gsub("[a-zA-Z ]", "", oly_men$gTime)
+oly_men$sTime <-  gsub("[a-zA-Z ]", "", oly_men$sTime)
+oly_men$bTime <-  gsub("[a-zA-Z ]", "", oly_men$bTime)
+
+oly_men
+```
+         
+```{r}
+oly_women$Event <- gsub("details", "", as.character(oly_women$Event))
+colnames(oly_women)[c(5,6,7,8,9,10)]<- c("Gold_Name", "Gold_Time","Silver_Name","Silver_Time","Bronze_Name","Bronze_Time")
+
+oly_women$Gold_Name<- gsub("\u00A0", " ", oly_women$Gold_Name, fixed =TRUE)
+oly_women<- oly_women%>%separate(Gold_Name, into=c("gold_first_name","gold_last_name", "gold_country"), sep=" ",extra="merge")%>%separate(Gold_Time,into=c("gTime","gwr_or"), sep="\\(")
+
+oly_women$Silver_Name<- gsub("\u00A0", " ", oly_women$Silver_Name, fixed =TRUE)
+oly_women<- oly_women%>%separate(Silver_Name, into=c("silver_first_name","silver_last_name", "silver_country"), sep=" ",extra="merge")%>%separate(Silver_Time,into=c("sTime","swr_or"), sep="\\(")
+
+oly_women$Bronze_Name<- gsub("\u00A0", " ", oly_women$Bronze_Name, fixed =TRUE)
+oly_women<- oly_women%>%separate(Bronze_Name, into=c("bronze_first_name","bronze_last_name", "bronze_country"), sep=" ",extra="merge")%>%separate(Bronze_Time,into=c("sTime","swr_or"), sep="\\(")
+
+oly_women
+```
+
+```{r}
+oly_men_gold <- oly_men %>%
+  select(Year, gTime, gwr_or, gold_country, Event, gold_first_name, gold_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(gTime))%>%
+  mutate(Medal = "Gold")
+
+names(oly_men_gold)[4] <- 'Athlete Country'
+names(oly_men_gold)[2] <- 'Time'
+names(oly_men_gold)[3] <- 'Record'
+
+Athlete <- paste(oly_men_gold$gold_first_name, oly_men_gold$gold_last_name)
+
+oly_men_gold <- oly_men_gold %>%
+  mutate(Name = Athlete)%>%
+  select(Year, Medal, Time, Record, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_men_gold
+```
+
+```{r}
+oly_men_silver <- oly_men %>%
+  select(Year, sTime, swr_or, silver_country, Event, silver_first_name, silver_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(sTime))%>%
+  mutate(Medal = "Silver")
+
+names(oly_men_silver)[4] <- 'Athlete Country'
+names(oly_men_silver)[2] <- 'Time'
+names(oly_men_silver)[3] <- 'Record'
+
+Athlete <- paste(oly_men_silver$silver_first_name, oly_men_silver$silver_last_name)
+
+oly_men_silver <- oly_men_silver %>%
+  mutate(Name = Athlete)%>%
+  select(Year, Medal, Time, Record, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_men_silver
+```
+         
+```{r}
+oly_men_bronze <- oly_men %>%
+  select(Year, bTime, bwr_or, bronze_country, Event, bronze_first_name, bronze_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(bTime))%>%
+  mutate(Medal = "Bronze")
+
+names(oly_men_bronze)[4] <- 'Athlete Country'
+names(oly_men_bronze)[2] <- 'Time'
+names(oly_men_bronze)[3] <- 'Record'
+
+Athlete <- paste(oly_men_bronze$bronze_first_name, oly_men_bronze$bronze_last_name)
+
+oly_men_bronze <- oly_men_bronze %>%
+  mutate(Name = Athlete)%>%
+  select(Year, Medal, Time, Record, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_men_bronze
+```
+
+```{r}
+levels(as.factor(oly_men_bronze$Time))
+```
+
+```{r}
+oly_men_clean <- bind_rows(oly_men_gold, oly_men_silver, oly_men_bronze)
+
+oly_men_clean
+```
+
+```{r}
+trimws(oly_men_clean$Time, which = "both")
+
+oly_men_clean <- oly_men_clean %>% 
+  transform(Time = as.numeric(Time))
+
+str(oly_men_clean)
+
+oly_men_clean
+```
+
+
+```{r}
+oly_men_100m <- oly_men_clean %>%
+  filter(Event == "100 metres")%>%
+  arrange(desc(Year))
+
+oly_men_100m
+```
+
+```{r}
+levels(as.factor(oly_men_100m$Time))
+```
+
+
+```{r}
+oly_women_gold <- oly_women %>%
+  select(Year, gTime, gold_country, Event, gold_first_name, gold_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(gTime))%>%
+  mutate(Medal = "Gold")
+
+names(oly_women_gold)[3] <- 'Athlete Country'
+names(oly_women_gold)[2] <- 'Time'
+
+Athlete <- paste(oly_women_gold$gold_first_name, oly_women_gold$gold_last_name)
+
+oly_women_gold <- oly_women_gold %>%
+  mutate(Name = Athlete)%>%
+  select(Year, Medal, Time, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_women_gold
+```
+
+```{r}
+oly_women_silver <- oly_women %>%
+  select(Year, gTime, silver_country, Event, silver_first_name, silver_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(gTime))%>%
+  mutate(Medal = "Silver")
+
+names(oly_women_silver)[3] <- 'Athlete Country'
+names(oly_women_silver)[2] <- 'Time'
+
+Athlete <- paste(oly_women_silver$silver_first_name, oly_women_silver$silver_last_name)
+
+oly_women_silver <- oly_women_silver %>%
+  mutate(Name = Athlete)%>%
+  select(Year, Medal, Time, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_women_silver
+```
+
+```{r}
+oly_women_bronze <- oly_women %>%
+  select(Year, gTime, bronze_country, Event, bronze_first_name, bronze_last_name, `Host City`, `Host Country`)%>%
+  filter(!is.na(gTime))%>%
+  mutate(Medal = "Bronze")
+
+names(oly_women_bronze)[3] <- 'Athlete Country'
+names(oly_women_bronze)[2] <- 'Time'
+
+Name <- paste(oly_women_bronze$bronze_first_name, oly_women_bronze$bronze_last_name)
+
+oly_women_bronze <- oly_women_bronze %>%
+  mutate(Name = Name)%>%
+  select(Year, Medal, Time, Event, Name, `Athlete Country`, `Host City`, `Host Country`)
+
+oly_women_bronze
+```
+
+```{r}
+oly_women_clean <- bind_rows(oly_women_gold, oly_women_silver, oly_women_bronze)
+
+oly_women_clean
+```
+
+### Just need to fix time into numeric.
+```{r}
+oly_men_100m %>%
+  ggplot(aes(Year, Time, color = Medal))+
+  geom_jitter(alpha = 0.5, size = 3)+
+  geom_smooth(se = FALSE)
+```
+
+
