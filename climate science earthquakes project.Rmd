@@ -1,0 +1,205 @@
+---
+title: "Untitled"
+author: "ME"
+date: '2022-07-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+
+library(forecast)
+library(tidyverse)
+library(sf)
+library(caret)
+library(NeuralNetTools)
+library(nnet)
+library(neuralnet)
+library(class)
+library(corrplot)
+library(survival)
+library(gestate)
+library(survminer)
+```
+
+```{r}
+low_mag<- read.csv('3-5.5.csv')
+high_mag<- read.csv('5.6-10.csv')
+phil_map<- st_read('phl_adm1.shp')
+wm<-map_data("world")
+full_mag<- read.csv('all mag.csv')
+last_mo<- read.csv('past30days.csv')
+```
+
+```{r}
+low_mag$date<- as.Date(low_mag$Time)
+```
+```{r}
+magnn<- full_mag%>%select(Depth.km, Magnitude, fac_large)
+nn<- neuralnet(fac_large~Magnitude+Depth.km, data=magnn, hidden = 3)
+plot(nn)
+confusionMatrix(predict(nn, test_mag), factor(test_mag$fac_large))
+```
+
+```{r}
+nn_index <- createDataPartition(low_magnn$highmagbool, p = 0.80, list = FALSE)
+train <- low_magnn[nn_index, ]
+test <- low_magnn[-nn_index, ]
+nn_pred<- predict(nn, high_mag)
+```
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 4, classProbs=TRUE)
+nnetmod<- train(abovefivefive ~.,
+                data=train_mag,
+                method = "nnet",
+                trControl = ctrl, 
+                preProcess=c("scale", "center"))
+
+confusionMatrix(predict(nnetmod, train_mag), test_mag$fac)
+
+nnetmod<- train(highmagbool~.,
+                data=train,
+                method = "nnet",
+                trControl = ctrl, 
+                preProcess=c("scale", "center"))
+confusionMatrix(predict(nnetmod, test_mag), as.factor(test_mag$abovefivefive))
+
+summary(test_mag)
+```
+```{r}
+rf_mag <- train(magfac ~ .,
+             data = train, 
+             method = "rf", 
+             ntree = 27, 
+             tuneLength = 3,
+             trControl = ctrl)
+
+
+confusionMatrix(predict(rf_mag, test),factor(test$magfac))
+
+```
+
+```{r}
+all_mag<-full_mag%>%na.omit()%>%mutate(avg_tot=avg)%>%select(Depth.km, Magnitude, EventLocationName, avg_tot)
+nna<- neuralnet(EventLocationName~Magnitude+Depth.km, data= all_mag, hidden = 3)
+```
+
+```{r}
+fvyr<- read.csv("fiveyr.csv")
+fvyr%>%ggplot(aes(x=date, y=Magnitude))+
+  geom_point()
+```
+```{r}
+fvyr_high<- fvyr%>%filter(Magnitude>=5.5)
+fvyr_lo<- fvyr%>%filter(Magnitude<5.5)
+fvyr_early<- fvyr%>%filter(Time>08/28/2018)
+fvyr_late<- fvyr%>%filter(Time<=08/28/2018)
+```
+
+```{r}
+full_mag %>%
+  select(EventLocationName, Magnitude, Depth.km)%>%
+  pivot_longer(cols=-EventLocationName, names_to= "components", values_to= "loading") %>%
+  ggplot(aes(loading, fill=EventLocationName)) +
+  geom_density(alpha=0.5)+
+  facet_wrap(.~components, scales="free")+
+  theme(legend.position = "bottom", legend.title = element_blank())+
+  ggtitle("Earthquakes In Phillipines and Surrounding Areas 2001-2021")
+```
+```{r}
+mag_cor_filter<- full_mag%>%select(Depth.km, Magnitude, abovefivefive)
+names(mag_cor_filter)[names(mag_cor_filter)=='abovefivefive']<- 'High_Magnitude'
+cor_mag<- cor(mag_cor_filter)
+corrplot(cor_mag)
+```
+
+```{r}
+full_mag<- full_mag%>%mutate(fac_large=as.factor(abovefivefive))
+full_filter<- full_mag%>%select(Depth.km, Magnitude, fac_large, num_time, abovefivefive)
+mag_index <- createDataPartition(full_filter$fac_large, p = 0.8, list = FALSE)
+train_mag <- full_filter[ mag_index, ]
+test_mag <- full_filter[-mag_index, ]
+control <- trainControl(method = "boot", number = 1)
+fit_knn <- train(fac_large ~ .,
+             data = train_mag, 
+             method = "knn",
+             tuneLength = 15,
+             trControl = control)
+
+confusionMatrix(predict(fit_knn, test_mag),factor(test_mag$fac_large))
+
+
+plot(fit_knn)
+plot_ly(data=full_filter)
+```
+
+```{r}
+surv<-survfit(Surv(full_mag$num_time,full_mag$fac_large == 1)~1)
+surv_df<- cbind(surv$time, surv$n.risk, surv$surv, surv$std.err)
+colnames(surv_df)<- c("Time", "NAR","Survival","Std.err")
+fit_KM(KMcurve = surv_df, Survival = "Survival", Time = "Time", Weights = "NAR", type = "automatic")
+traj<- PieceR(matrix())
+event_prediction(surv_df)
+```
+```{r}
+surv2<- Surv(time=full_mag$num_time, event=full_mag$abovefivefive)
+fit_surv <- coxph(Surv(full_mag$num_time, full_mag$abovefivefive) ~ full_mag$Depth.km+full_mag$Magnitude, train_mag, model = TRUE)
+pred_surv<- predict(fit_surv, newdata = test_mag, type="expected")
+head(pred_surv)
+confusionMatrix(predict(fit_surv, test_mag),factor(test_mag$abovefivefive))
+surv_train<- train_mag%>%filter(Magnitude<5.5)
+
+fit_surv2 <- survfit(Surv(surv_train$num_time, surv_train$abovefivefive) ~ surv_train$Magnitude, data=surv_train)
+d <- data.frame(time = fit_surv2$time,
+                  n.risk = fit_surv2$n.risk,
+                  n.event = fit_surv2$n.event,
+                  n.censor = fit_surv2$n.censor,
+                  surv = fit_surv2$surv,
+                  upper = fit_surv2$upper,
+                  lower = fit_surv2$lower
+                  )
+ggsurvplot(fit_surv2,
+          pval = TRUE, conf.int = TRUE,
+          risk.table = TRUE, # Add risk tablek table color by groups
+          linetype = "strata", # Change line type by groups
+          surv.median.line = "hv", # Specify median survival
+          ggtheme = theme_bw(),  # customize style of confidence intervals
+   xlab = "Time in days since 01.01.1900",
+   xlim = c(42000,45000),# customize X axis label.
+   break.time.by = 1000, 
+   legend="none")
+```
+
+```{r}
+fitcph<- coxph(Surv(num_time, abovefivefive)~ Magnitude+ Depth.km, data=full_mag)
+fitsur<- survfit(fitcph, data = new)
+new<- with(full_mag, data.frame(Magnitude = rep(mean(full_mag$Magnitude, na.rm=TRUE),2),
+                                Depth.km=rep(mean(full_mag$Depth.km, ma.rm=TRUE),2)))
+ggsurvplot(fit_sur, risk.table = TRUE, xlim = c(36900,500000), strata=)
+```
+```{r}
+ggsurvplot(
+   d,                     # survfit object with calculated statistics.
+   pval = TRUE,             # show p-value of log-rank test.
+   conf.int = TRUE,         # show confidence intervals for 
+                            # point estimaes of survival curves
+   conf.int.style = "step",  # customize style of confidence intervals
+   xlab = "Time in days",   # customize X axis label.
+   break.time.by = 1000,     # break X axis in time intervals by 200.
+   ggtheme = theme_light(), # customize plot and risk table with a theme.
+   risk.table = "abs_pct",  # absolute number and percentage at risk.
+  risk.table.y.text.col = T,# colour risk table text annotations.
+  risk.table.y.text = FALSE,# show bars instead of names in text annotations
+  xlim(c(42000,45000)),                          # in legend of risk table.
+  ncensor.plot = TRUE)
+```
+
+```{r}
+past30<- read.csv("past30days.csv")
+fitsur30<- survfit(fitcph, data = past30)
+ggsurvplot(fitsur30, data=past30, risk.table = TRUE, xlim = c(36900,50000))
+```
+
