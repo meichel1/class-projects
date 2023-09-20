@@ -1,0 +1,531 @@
+---
+title: "502 proj 2.0"
+output: html_document
+---
+
+
+```{r}
+# install.packages("ggsci")
+# install.packages("wesanderson")
+# install.packages("dichromat")
+# install.packages("tidyverse")
+# install.packages("rvest")
+# install.packages("stringr")
+# install.packages("tm") 
+# install.packages("wordcloud") 
+# install.packages("wordcloud2") 
+# install.packages("tidytext") 
+# install.packages("reshape2") 
+# install.packages("radarchart") 
+# install.packages("knitr")
+# install.packages("quanteda")
+# install.packages("readxl")
+# install.packages("ggrepel")
+# install.packages("png")
+# install.packages("ggwordcloud")
+# install.packages("gridExtra")
+# install.packages("bslib")
+```
+
+
+```{r}
+# libraries
+library(ggsci)
+library(wesanderson)
+library(dichromat)
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(tm) 
+library(wordcloud) 
+library(wordcloud2) 
+library(tidytext) 
+library(reshape2) 
+library(radarchart)
+library(quanteda)
+library(readxl)
+library(ggrepel)
+library(png)
+library(ggwordcloud)
+library(gridExtra)
+library(bslib)
+```
+
+```{r}
+# lexical reference
+bing <- read_csv("Bing.csv")
+nrc <- read_csv("NRC.csv")
+afinn <- read_csv("Afinn.csv")
+mystopwords <- tibble(word=c(stopwords("english"), 
+                                 c("thats","weve","hes","theres","ive","im",
+                                   "will","can","cant","dont","youve","us",
+                                   "youre","youll","theyre","whats","didnt","obi","wan","a","an")))
+```
+```{r}
+# functions
+cleanCorpus <- function(corpus){
+
+  corpus.tmp <- tm_map(corpus, removePunctuation)
+  corpus.tmp <- tm_map(corpus.tmp, stripWhitespace)
+  corpus.tmp <- tm_map(corpus.tmp, content_transformer(tolower))
+  v_stopwords <- c(stopwords("english"), c("thats","weve","hes","theres","ive","im",
+                                           "will","can","cant","dont","youve","us",
+                                           "youre","youll","theyre","whats","didnt","obi","wan"))
+  corpus.tmp <- tm_map(corpus.tmp, removeWords, v_stopwords)
+  corpus.tmp <- tm_map(corpus.tmp, removeNumbers)
+  return(corpus.tmp)
+
+}
+frequentTerms <- function(text){
+
+  s.cor <- Corpus(VectorSource(text))
+  s.cor.cl <- cleanCorpus(s.cor)
+  s.tdm <- TermDocumentMatrix(s.cor.cl)
+  s.tdm <- removeSparseTerms(s.tdm, 0.999)
+  m <- as.matrix(s.tdm)
+  word_freqs <- sort(rowSums(m), decreasing=TRUE)
+  dm <- data.frame(word=names(word_freqs), freq=word_freqs)
+  return(dm)
+
+}
+tokenizer  <- function(x){
+
+  NGramTokenizer(x, Weka_control(min=2, max=2))
+
+}
+frequentBigrams <- function(text){
+
+  s.cor <- VCorpus(VectorSource(text))
+  s.cor.cl <- cleanCorpus(s.cor)
+  s.tdm <- TermDocumentMatrix(s.cor.cl, control=list(tokenize=tokenizer))
+  s.tdm <- removeSparseTerms(s.tdm, 0.999)
+  m <- as.matrix(s.tdm)
+  word_freqs <- sort(rowSums(m), decreasing=TRUE)
+  dm <- data.frame(word=names(word_freqs), freq=word_freqs)
+  return(dm)
+
+}
+```
+
+```{r}
+# data
+epiv<- read_xlsx("iv scene dial.xlsx")
+epv<-read_xlsx("v scene dial.xlsx")
+epvi<-read_xlsx("vi scene char.xlsx")
+
+epiv$character<- as.factor(epiv$character)
+epiv$dialogue<- as.factor(epiv$dialogue)
+
+epv$character<- as.factor(epv$character)
+epv$dialogue<- as.factor(epv$dialogue)
+
+epvi$character<- as.factor(epvi$character)
+epvi$dialogue<- as.factor(epvi$dialogue)
+```
+```{r}
+# build character lists
+vi_char<- epvi%>%count(character, sort=TRUE)%>%top_n(15)
+v_char<- epv%>%count(character, sort=TRUE)%>%top_n(15)
+iv_char<- epiv%>%count(character, sort=TRUE)%>%top_n(15)
+
+char_list<-rbind(vi_char, v_char, iv_char)
+char_list<-char_list[!duplicated(char_list$character),]
+char_list<-arrange(char_list,desc(n))%>%drop_na()%>%top_n(18)
+char_list$visible<- c("Han Solo","Luke Skywalker","C-3PO","Leia Organa","Darth Vader","Lando Calrissian","Emperor Palpatine","Red Leader","Biggs Darklighter","Moff Tarkin","Owen Lars","Jabba the Hutt","Stormtrooper","Obi-Wan (Ben) Kenobi","Admiral Ackbar","Gold Leader","Yoda","Admiral Rieekan"
+)
+char_list
+```
+
+
+
+```{r}
+# sentiment joins
+iv<- epiv%>%mutate(dialogue=as.character(epiv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+  inner_join(nrc, "word")%>%
+  count(word, sentiment, sort=TRUE)
+v<- epv%>%mutate(dialogue=as.character(epv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+  inner_join(nrc, "word")%>%
+  count(word, sentiment, sort=TRUE)
+vi<- epvi%>%mutate(dialogue=as.character(epvi$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+  right_join(nrc, "word")%>%
+  count(word, sentiment, sort=TRUE)
+iv_dial<- epiv%>%mutate(dialogue=as.character(epiv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="iv")
+v_dial<- epv%>%mutate(dialogue=as.character(epv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="v")
+vi_dial<- epvi%>%mutate(dialogue=as.character(epvi$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="vi")
+iv_dial_scene<- iv_dial%>%
+    filter(character %in% char_list$character)%>%
+   inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+v_dial_scene<- v_dial%>%
+    filter(character %in% char_list$character)%>%
+   inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+vi_dial_scene<- vi_dial%>%
+    filter(character %in% char_list$character)%>%
+   inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+
+
+```
+
+```{r}
+# aggregation
+full_sw_dial<-rbind(iv_dial, v_dial,vi_dial)
+full_sw_sent<- full_sw_dial%>%left_join(nrc, "word")%>%drop_na()
+full_sw_dial_scene<- rbind(iv_dial_scene, v_dial_scene, vi_dial_scene)
+
+```
+
+
+
+```{r}
+# additional wrangling
+
+df<-data.frame(xmin=c(-Inf,175,359),
+               xmax=c(174, 358, Inf),
+               ymin=c(-Inf,-Inf, -Inf),
+               ymax=c(Inf,Inf,Inf),
+               eps=c("Episode IV","Episode V", "Episode VI"))
+
+full_sw_dial_scene$idx<- 1:nrow(full_sw_dial_scene)
+rects <- data.frame(xstart = seq(0,3,1.5), xend = seq(1.5,4.5,1.5), col = c("IV","V","VI"))
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+# exploratory graphoc
+epiv%>%group_by(scene_num)%>%filter(n()>1)%>%
+  ggplot(aes(x=scene_num))+
+  geom_bar()
+
+#epiv%>%group_by(scene_num)%>%filter(n()>1)%>%
+ # ggplot(aes(x=scene_num, y=character))+
+  #geom_point()
+  
+```
+
+
+```{r}
+# 
+# iv<- epiv%>%mutate(dialogue=as.character(epiv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+#   inner_join(nrc, "word")%>%
+#   count(word, sentiment, sort=TRUE)
+# 
+# iv%>%ggplot(aes(x=reorder(sentiment, -n, sum), y=n)) + 
+#   geom_bar(stat="identity", aes(fill=sentiment), show.legend=FALSE) +
+#   labs(x="Sentiment", y="Frequency", title="OVerall Sentiment Frequency", subtitle="Star Wars Episode IV: A New Hope")+theme_bw()
+```
+```{r}
+# v<- epv%>%mutate(dialogue=as.character(epv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+#   inner_join(nrc, "word")%>%
+#   count(word, sentiment, sort=TRUE)
+# 
+# v%>%ggplot(aes(x=reorder(sentiment, -n, sum), y=n)) + 
+#   geom_bar(stat="identity", aes(fill=sentiment), show.legend=FALSE) +
+#   labs(x="Sentiment", y="Frequency", title="OVerall Sentiment Frequency", subtitle="Star Wars Episode V: The Empire Strikes Back ") +
+#   theme_bw()
+```
+```{r}
+ vi<- epvi%>%mutate(dialogue=as.character(epvi$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%
+   right_join(nrc, "word")%>%
+   count(word, sentiment, sort=TRUE)
+
+ full_sw_sent<- full_sw_dial%>%left_join(nrc, "word")%>%drop_na()
+
+ full_sw_sent%>%filter(film%in%"iv", character%in% "THREEPIO")%>%
+   count(word, sentiment, sort=TRUE)%>%
+   ggplot(aes(x=reorder(sentiment, -n, sum), y=n)) +
+   geom_bar(stat="identity", aes(fill=sentiment), show.legend=FALSE) +
+   labs(x="Sentiment", y="Frequency")+
+   scale_fill_aaas()
+
+ full_sw_sent%>%ggplot(aes(x=sum(str_count(sentiment)))) +
+   geom_bar(aes(fill=sentiment), show.legend=FALSE) +
+   labs(x="Sentiment", y="Frequency")+
+   scale_fill_aaas()
+```
+
+```{r}
+# 
+# epiv%>%group_by(character)%>%count(sort=TRUE)
+```
+```{r}
+# epv%>%group_by(character)%>%count(sort=TRUE)
+```
+
+```{r}
+# epvi%>%group_by(character)%>%count(sort=TRUE)
+```
+```{r}
+# vi_char<- epvi%>%count(character, sort=TRUE)%>%top_n(15)
+# v_char<- epv%>%count(character, sort=TRUE)%>%top_n(15)
+# iv_char<- epiv%>%count(character, sort=TRUE)%>%top_n(15)
+# 
+# char_list<-rbind(vi_char, v_char, iv_char)
+# char_list<-char_list[!duplicated(char_list$character),]
+# char_list<-arrange(char_list,desc(n))%>%drop_na()%>%top_n(18)
+# char_list$visible<- c("Han Solo","Luke Skywalker","C-3PO","Leia Organa","Darth Vader","Lando Calrissian","Emperor Palpatine","Red Leader","Biggs Darklighter","Moff Tarkin","Owen Lars","Jabba the Hutt","Stormtrooper","Obi-Wan (Ben) Kenobi","Admiral Ackbar","Gold Leader","Yoda","Admiral Rieekan"
+# )
+# char_list
+```          
+
+```{r}
+
+#     full_sw_dial_scene%>%filter(film%in%"iv")%>%
+#       filter(character %in% c("LUKE", "LEIA"))%>%
+#       subset(duplicated(scene_num))%>%
+#       group_by(character)%>%ggplot(aes(idx, value, color=character))+
+#       geom_rect(data=df,aes(xmin=xmin,ymin=ymin,xmax=xmax,ymax=ymax,fill=eps),
+#                 alpha=0.2,inherit.aes=FALSE)+
+#       scale_fill_manual(values=c("#8CAECB","#9F0613", "#417D6C"))+
+#       geom_smooth(se=FALSE)+
+#       theme(axis.text.x=element_blank(), axis.title.x = element_blank())
+```
+
+
+```{r}
+# iv_dial<- epiv%>%mutate(dialogue=as.character(epiv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="iv")
+# iv_dial %>%
+#   filter(character %in% c("HAN","LUKE","THREEPIO","LEIA","VADER","LANDO","EMPEROR","JABBA","BEN","ACKBAR","YODA")) %>%
+#   inner_join(nrc, "word") %>%
+#   count(character, sentiment, sort=TRUE) %>%
+#   ggplot(aes(x=sentiment, y=n)) +
+#   geom_col(aes(fill=sentiment), show.legend=FALSE) +
+#   facet_wrap(~character, scales="free_x") +
+#   labs(x="Sentiment", y="Frequency") +
+#   coord_flip() +
+#   theme_bw() 
+```
+```{r}
+# v_dial<- epv%>%mutate(dialogue=as.character(epv$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="v")
+# v_dial %>%
+#   filter(character %in% c("HAN","LUKE","THREEPIO","LEIA","LEIA","VADER","LANDO","EMPEROR","JABBA","BEN","ACKBAR","YODA")) %>%
+#   inner_join(nrc, "word") %>%
+#   count(character, sentiment, sort=TRUE) %>%
+#   ggplot(aes(x=sentiment, y=n)) +
+#   geom_col(aes(fill=sentiment), show.legend=FALSE) +
+#   facet_wrap(~character, scales="free_x") +
+#   labs(x="Sentiment", y="Frequency") +
+#   coord_flip() +
+#   theme_bw() 
+```
+
+```{r}
+# vi_dial<- epvi%>%mutate(dialogue=as.character(epvi$dialogue))%>%unnest_tokens(word, dialogue)%>%anti_join(mystopwords, by="word")%>%mutate(film="vi")
+# vi_dial %>%
+#   filter(character %in% c("HAN","LUKE","THREEPIO","LEIA","VADER","LANDO","EMPEROR","JABBA","BEN","ACKBAR","YODA")) %>%
+#   inner_join(nrc, "word") %>%
+#   count(character, sentiment, sort=TRUE) %>%
+#   ggplot(aes(x=sentiment, y=n)) +
+#   geom_col(aes(fill=sentiment), show.legend=FALSE) +
+#   facet_wrap(~character, scales="free_x") +
+#   labs(x="Sentiment", y="Frequency") +
+#   coord_flip() +
+#   theme_bw() 
+```
+```{r}
+# iv_dial %>%
+#   filter(character %in% c("HAN","LUKE","THREEPIO","LEIA","VADER","LANDO","EMPEROR","JABBA","BEN","ACKBAR","YODA")) %>%
+#   ggplot(aes(x=character, y=scene_num, fill=character)) +
+#   geom_violin()+
+#   labs(x="", y="") +
+#   coord_flip() +
+#   theme_bw() 
+```
+
+```{r}
+# iv_dial_scene<- iv_dial%>%
+#     filter(character %in% char_list$character)%>%
+#    inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+# v_dial_scene<- v_dial%>%
+#     filter(character %in% char_list$character)%>%
+#    inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+# vi_dial_scene<- vi_dial%>%
+#     filter(character %in% char_list$character)%>%
+#    inner_join(nrc, "word")%>%inner_join(afinn, "word")%>%inner_join(get_sentiments("bing"))
+# 
+# full_sw_dial_scene<- rbind(iv_dial_scene, v_dial_scene, vi_dial_scene)
+# full_sw_dial<-rbind(iv_dial, v_dial,vi_dial)
+```
+
+```{r}
+# 
+# iv_dial_scene%>%group_by(character)%>%
+#   ggplot(aes(x=character, y=value, fill=character))+
+#   geom_boxplot()+
+#   labs(title="Sentiment Value Boxplot", subtitle="Star Wars Episode IV: A New Hope")
+```
+```{r}
+# 
+# v_dial_scene%>%group_by(character)%>%
+#   ggplot(aes(x=character, y=value, fill=character))+
+#   geom_boxplot()+
+#   labs(title="Sentiment Value Boxplot", subtitle="Star Wars Episode V: The Empire Strikes Back")
+```
+```{r}
+
+# vi_dial_scene%>%group_by(character)%>%
+#   ggplot(aes(x=character, y=value, fill=character))+
+#   geom_boxplot()+
+#   labs(title="Sentiment Value Boxplot", subtitle="Star Wars Episode VI: Return of the Jedi")
+```
+
+```{r}
+# par(mfrow=c(1,2))
+# iv_dial %>%filter(character == "LUKE")%>%
+#   inner_join(bing, "word")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   acast(word ~ sentiment, value.var="n", fill=0) %>%
+#   comparison.cloud(colors=c("#F8766D", "#00BFC4"), max.words=50, title.size=1,scale=c(4,.3), random.order=FALSE)
+# 
+# 
+# iv_dial %>%filter(character == "LEIA")%>%
+#   inner_join(bing, "word")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   acast(word ~ sentiment, value.var="n", fill=0) %>%
+#   comparison.cloud(colors=c("#F8766D", "#00BFC4"), max.words=50,title.size = 1, scale=c(2,.3),random.order=FALSE)
+```
+```{r}
+## this one
+
+# par(mfrow=c(1,2))
+# full_sw_dial %>%group_by(scene_num)%>%filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%filter(character == "LUKE")%>%
+#   inner_join(bing, "word")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   acast(word ~ sentiment, value.var="n", fill=0) %>%
+#   comparison.cloud(colors=c("#F8766D", "#00BFC4"), max.words=50, title.size=1,scale=c(4,.3), random.order=FALSE)
+# 
+# 
+# iv_dial %>%group_by(scene_num)%>%filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%
+#   filter(character == "LEIA")%>%
+#   inner_join(bing, "word")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   acast(word ~ sentiment, value.var="n", fill=0) %>%
+#   comparison.cloud(colors=c("#F8766D", "#00BFC4"), max.words=50,title.size = 1, scale=c(2,.3),random.order=FALSE)
+```
+
+```{r}
+# duplicated subset
+# iv_dial_scene%>%
+#   filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%
+#   ggplot(aes(x=character, y=value, fill=alignment))+
+#   geom_boxplot()+
+#   labs(title="Sentiment Value Boxplot", subtitle="Star Wars Episode IV: A New Hope filtered")
+# 
+# iv_dial_scene%>%
+#   filter(character %in% c("LUKE","LEIA"))%>%
+#   ggplot(aes(x=character, y=value, fill=character))+
+#   geom_boxplot()+
+#   labs(title="Sentiment Value Boxplot", subtitle="Star Wars Episode IV: A New Hope")
+
+```
+```{r}
+# par(mfrow=c(1,2))
+# 
+# iv_dial_scene %>%group_by(scene_num)%>% filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%
+#   filter(character == "LEIA")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   ggplot(aes(label=word, color=sentiment))+
+#   geom_text_wordcloud()+
+#   labs(title="LEIA")
+# 
+# iv_dial_scene %>%group_by(scene_num)%>% filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%
+#   filter(character == "LUKE")%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   ggplot(aes(label=word, color=sentiment))+
+#   geom_text_wordcloud()+
+#   labs(title="LUKE")
+
+### try in the same ggplot so you can just facet it, maybe more better
+```
+
+```{r}
+# iv_dial_scene%>%group_by(scene_num)%>% filter(character %in% c("LUKE","LEIA"))%>%
+#   subset(duplicated(scene_num))%>%
+#   count(word, sentiment, sort=TRUE) %>%
+#   ggplot(aes(label=word, color=sentiment))+
+#   geom_text_wordcloud()
+
+
+```
+```{r}
+# FillColor <- case_when(input$film == "iv" ~ "palegreen1", 
+#                        input$film == "v" ~ "lightgoldenrod1", 
+#                        input$film == "vi" ~ "pink1")
+```
+
+
+```{r}
+# 
+# min(full_sw_dial_scene$value)
+# 
+# 
+# full_sw_dial_scene%>%group_by(film)%>%
+#   filter(character=="LUKE")%>%
+#   ggplot(aes(x=scene_num, y=value, color=character))+
+#   geom_smooth(se=FALSE)
+# 
+# df<-data.frame(xmin=c(-Inf,175,359),
+#                xmax=c(174, 358, Inf),
+#                ymin=c(-Inf,-Inf, -Inf),
+#                ymax=c(Inf,Inf,Inf),
+#                eps=c("Episode IV","Episode V", "Episode VI"))
+# 
+# full_sw_dial_scene$idx<- 1:nrow(full_sw_dial_scene)
+# rects <- data.frame(xstart = seq(0,3,1.5), xend = seq(1.5,4.5,1.5), col = c("IV","V","VI"))
+# 
+# FillColors <- case_when(full_sw_dial_scene$idx>=359 ~ "palegreen1", 
+#                     full_sw_dial_scene$idx>=175 ~ "lightgoldenrod1", 
+#                     full_sw_dial_scene$idx>=1 ~ "pink1")
+# 
+#       geom_rect(aes(xmin=-Inf, xmax=174, ymin=-Inf, ymax=Inf), fill="#8CAECB",alpha=.1)+
+#       geom_rect(aes(xmin=175, xmax=358, ymin=-Inf, ymax=Inf,alpha=.1),fill="#9F0613")+
+#       geom_rect(aes(xmin=359, xmax=Inf, ymin=-Inf, ymax=Inf,alpha=.1), fill="#417D6C")
+#       
+#       
+#       ggplot2::annotate("rect", xmin=-Inf, xmax=174, ymin=-Inf, ymax=Inf, alpha=0.2, fill="#8CAECB")+
+#       ggplot2::annotate("rect",xmin=175, xmax=358, ymin=-Inf, ymax=Inf, fill="#9F0613",alpha=.1)+
+#       ggplot2::annotate("rect",xmin=359, xmax=Inf, ymin=-Inf, ymax=Inf, fill="#417D6C",alpha=.1)+
+
+# full_sw_dial_scene%>%filter(film%in% c("v","iv"), character %in% c("LUKE","LEIA"))%>%
+#   ggplot()+
+#   geom_rect(aes(xmin=-Inf, xmax=174, ymin=-Inf, ymax=Inf), alpha=.5, fill="green")+
+#   geom_rect(aes(xmin=175, xmax=358, ymin=-Inf, ymax=Inf), alpha=.5, fill="blue")+
+#   geom_rect(aes(xmin=359, xmax=Inf, ymin=-Inf, ymax=Inf), alpha=.5, fill="pink")+
+#   geom_smooth(aes(idx, value, color=character),se=FALSE)
+```
+
+```{r}
+## the subsetting is all fucked up, gotta find the right way to subset the data dummy
+```
+
+```{r}
+
+# top_bottom<- bind_rows(iv_dial_scene%>%
+#                          group_by(word)%>%
+#                          summarize(feeling=sum(value))%>%
+#                          mutate(value=feeling)%>%
+#                          slice_min(value, n=5),
+#                        iv_dial_scene%>%group_by(word)%>%slice_max(value,n=5))
+#                         
+# 
+# 
+# top_bottom %>%
+#   ggplot(aes(value, word, fill = sentiment)) +
+#   geom_col() +
+#   labs(x = "Contribution to sentiment", y = NULL)
+# 
+# 
+# top_bottom%>%group_by(word)%>%count(word)
+```
+```{r}
+# iv_dial_scene%>%left_join(nrc,"word")
+```
+
