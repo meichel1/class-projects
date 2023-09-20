@@ -8,7 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 ```{r}
 happy_reduce<- happy2%>%select(-upperwhisker, -lowerwhisker, -std_error_ladder_score, -country_name)%>%drop_na()%>%mutate(regional_indicator = as.factor(regional_indicator))%>%arrange(regional_indicator)
 happy_reduce%>%count(regional_indicator)%>%arrange(regional_indicator)
