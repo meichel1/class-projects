@@ -9,10 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-
-###### install.packages("trackdown")
-###### install.packages("rvest")
-
 ```{r}
 library(tidyverse)
 library(ggplot2)
