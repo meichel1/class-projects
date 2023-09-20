@@ -1,0 +1,151 @@
+---
+title: "kepler classification"
+author: "ME"
+date: '2022-06-22'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(tidyverse)
+library(factoextra)
+library(rpart)
+library(rpart.plot)
+library(FactoMineR)
+library(corrplot)
+```
+
+```{r}
+kepler<- read.csv('kepler.csv')
+```
+```{r}
+kepcl<- na.omit(kepler)
+kepnum<- kepler%>%select(c(11:20, 22:27))
+keppca<- prcomp(kepcl[,c(11:20, 22:27)], center=TRUE, scale. = TRUE)
+keppca
+
+fviz_contrib(keppca, choice = "var", axes = 1)
+
+
+fviz_contrib(keppca, choice = "var", axes = 2)
+
+keppca
+```
+```{r}
+kepeig <- PCA(kepcl[,c(11:20, 22:27)], quali.sup = 1, graph=FALSE)
+eigenvalues <- kepeig$eig
+eigenvalues
+fviz_screeplot(kepeig, addlabels = TRUE, ylim = c(0, 55))
+```
+```{r}
+rpart_fit<- rpart(disposition~., data = train, method = 'class')
+rpart.plot(rpart_fit)
+```
+```{r}
+# since rf had the highest kappa, use that fit to gauge importance
+variable_importance = varImp(rf_fit, scale=FALSE)
+
+plot(variable_importance, top=5)
+
+```
+
+```{r}
+
+remove_cols <- nearZeroVar(kepler, names = TRUE, 
+                           freqCut = 2, uniqueCut = 20)
+
+all_cols <- names(kepler)
+
+kepsm <- kepler[ , setdiff(all_cols, remove_cols)]
+
+preproc = preProcess(kepler, method = "nzv", freqCut = 2, uniqueCut = 20)
+keppreproc = predict(preproc, kepler)
+```
+
+```{r}
+kep<- test%>%select(-kepid, -disposition)
+keppcaproc<- prcomp(kep, center=TRUE, scale. = TRUE)
+
+
+fviz_contrib(keppcaproc, choice = "var", axes = 1)
+
+
+fviz_contrib(keppcaproc, choice = "var", axes = 2)
+
+
+```
+```{r}
+kclust <- kmeans(kepprocnum, centers = 3)
+fviz_cluster(kclust, kepprocnum, ellipse.type = 'norm')
+```
+
+
+```{r}
+#preprocessed scree
+
+kepeig2 <- PCA(keppreproc[,c(6:15, 17:21)], quali.sup = 1, graph=FALSE)
+eigenvalues2 <- kepeig2$eig
+eigenvalues2
+fviz_screeplot(kepeig2, addlabels = TRUE, ylim = c(0, 55))
+```
+```{r}
+
+
+```
+
+
+```{r}
+# unprocessed corrplot was GARBAGE this is much better
+kepprocnum<- keppreproc[,c(6:15, 17:21)]
+kepres2<-cor(kepprocnum)
+corrplot(kepres2)
+```
+```{r}
+keppca2<- train%>%select(-disposition)
+build_pca<-prcomp(x=kep,scale=T,center=T) 
+build_pca
+screeplot(build_pca)
+
+```
+
+```{r}
+
+kclust <- kmeans(keppca2, centers = 4)
+
+keppca2$cluster <- as.factor(kclust$cluster)
+
+
+
+ggplot(keppca2, aes(cluster, koi_prad, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Inferred Radius")
+
+ggplot(keppca2, aes(cluster, koi_count, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Number of Identified Candidates")
+
+ggplot(keppca2, aes(cluster, koi_period, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Mean Interval Time Between Transits")
+
+ggplot(keppca2, aes(cluster, koi_teq, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Approximate Temperatures")
+
+ggplot(keppca2, aes(cluster, koi_depth, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Transit Depth")
+```
+
