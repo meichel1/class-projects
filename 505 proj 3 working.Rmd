@@ -1,0 +1,214 @@
+---
+title: "505 Project 3"
+author: "ME/AR"
+date: "4/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+happy_reduce<- happy2%>%select(-upperwhisker, -lowerwhisker, -std_error_ladder_score, -country_name)%>%drop_na()%>%mutate(regional_indicator = as.factor(regional_indicator))%>%arrange(regional_indicator)
+happy_reduce%>%count(regional_indicator)%>%arrange(regional_indicator)
+```
+
+```{r}
+happy_reg <- PCA(happy_reduce[, 2:11], quali.sup = 1, graph=FALSE)
+
+eigenvalues <- happy_reg$eig
+eigenvalues
+fviz_screeplot(happy_reg, addlabels = TRUE, ylim = c(0, 55))
+```
+# he asks for how many principal components explain 50% of the data, so that's two which ain't bad. I might go up to 4 though based on the screeplot (which is another of the questions). that seems to capture a significant amount more. 
+```{r}
+fviz_pca_var(happy_reg, geom = c( "text" , "point" ) )
+
+```
+```{r}
+hapmap<- happy_reduce%>%select(regional_indicator, ladder_score, log_gdp_per_cap, social_support, (life_expectancy/10))
+#Visualize the curves
+
+hapmap %>%
+  pivot_longer(cols=-regional_indicator, names_to= "components", values_to= "loading")
+
+hapmap %>%
+  pivot_longer(cols=-regional_indicator, names_to= "components", values_to= "loading") %>%
+  ggplot(aes(loading, fill=regional_indicator)) +
+  geom_density(alpha=0.5)+
+  facet_wrap(.~components, scales="free")
+
+
+hapmap %>% select(regional_indicator, social_support) %>% group_by(regional_indicator)
+
+
+```
+
+```{r}
+happy_reduce2<- happy2%>%select(-upperwhisker, -lowerwhisker, -std_error_ladder_score, -country_name, -log_gdp_per_cap, life_expectancy/10)%>%drop_na()%>%mutate(regional_indicator = as.factor(regional_indicator))
+
+happy_reg2 <- PCA(happy_reduce2[, 2:10], quali.sup = 1, graph=FALSE)
+
+fviz_contrib(happy_reg2, choice = "var", axes = 1)
+
+
+fviz_contrib(happy_reg2, choice = "var", axes = 2)
+
+# THIS is interesting
+```
+```{r}
+happy_reduce$regional_indicator <- make.names(happy_reduce$regional_indicator)
+
+happy_index <- createDataPartition(happy_reduce$regional_indicator, p = 0.80, list = FALSE)
+train <- happy_reduce[happy_index, ]
+test <- happy_reduce[-happy_index, ]
+
+table(train$regional_indicator)
+
+ctrl <- trainControl(method = "cv")
+
+fit <- train(regional_indicator ~ .,
+             data = train, 
+             method = "rpart",
+             trControl = ctrl,
+             metric = "Kappa")
+
+fit
+
+```
+## GARBAGE best kappa .37? gross
+```{r}
+
+ctrl <- trainControl(method = "cv", number = 4, classProbs=TRUE)
+set.seed(504) 
+hapte_index <- createDataPartition(happy_reduce$regional_indicator, p = 0.8, list = FALSE)
+train <- happy_reduce[ hapte_index, ]
+test <- happy_reduce[-hapte_index, ]
+
+# (Random Forest)
+
+fit <- train(regional_indicator ~ .,
+             data = train, 
+             method = "rf", 
+             ntree = 27, 
+             tuneLength = 3,
+             trControl = ctrl)
+
+fit
+confusionMatrix(predict(fit, test),factor(test$regional_indicator))
+
+# kappa up to .56??
+```
+```{r}
+
+library(NbClust)
+
+fviz_nbclust(happy_reduce[2:11], kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2) +
+  labs(subtitle = "Elbow method")
+
+## okey doke, i fix
+
+happy_km<- happy_reduce%>%na.exclude()%>%select(-regional_indicator)
+kmeans(happy_km, 4, nstart = 25)
+kclust <- kmeans(happy_km, centers = 10)
+kclust$centers
+glance(kclust)
+
+
+
+```
+
+```{r}
+
+variable_importance = varImp(fit, scale=FALSE)
+
+plot(variable_importance, top=5)
+
+
+```
+```{r}
+hapte<- happy_reduce%>%select(regional_indicator, -life_expectancy)
+ctrl <- trainControl(method = "cv", number = 4, classProbs=TRUE)
+set.seed(504) 
+hapte_index <- createDataPartition(happy_reduce$regional_indicator, p = 0.8, list = FALSE)
+train <- happy_reduce[ hapte_index, ]
+test <- happy_reduce[-hapte_index, ]
+
+# (Random Forest)
+
+fit <- train(regional_indicator ~ .,
+             data = train, 
+             method = "rf", 
+             ntree = 27, 
+             tuneLength = 3,
+             trControl = ctrl)
+
+fit
+confusionMatrix(predict(fit, test),factor(test$regional_indicator))
+
+
+```
+```{r}
+Grid <- expand.grid(interaction.depth=c(1, 3, 5), n.trees = (0:10)*50,
+                   shrinkage=c(0.01, 0.001),
+                   n.minobsinnode=10)
+                   
+ctrl <- trainControl(method = "cv", number=3)
+
+fit <- train(regional_indicator ~ .,
+             data = train, 
+             method = "gbm",
+             verbose=FALSE,
+             tuneGrid=Grid,
+             trControl = ctrl)
+
+fit
+```
+```{r}
+happy3 = happy_reduce %>% select(-regional_indicator, -happy_score)%>%
+  na.exclude()
+
+happy3 = na.omit(happy3)
+
+kklust = kmeans(happy3, centers = 4)
+
+kklust$centers
+
+
+happy3$cluster <- as.factor(kklust$cluster)
+
+table(happy3$cluster)
+
+head(happy3)
+```
+
+```{r}
+library(tidyverse)
+
+ggplot(happy3, aes(cluster, ladder_score, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Happiness Score")
+  
+ggplot(happy3, aes(cluster, life_expectancy, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Life Expectancy")
+
+  ggplot(happy3, aes(cluster, log_gdp_per_cap, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by GDP")
+  
+ggplot(happy3, aes(cluster, social_support, col = cluster)) +
+  geom_point(alpha = 0.6) +
+  geom_jitter() +
+  theme_classic()+
+  ggtitle("Distribution of clusters by Social Support")
+```
+
